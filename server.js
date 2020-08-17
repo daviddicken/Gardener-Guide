@@ -8,7 +8,6 @@ const superagent = require('superagent');
 require('dotenv').config();
 require('ejs');
 const methodOverride = require('method-override');
-const { render } = require('ejs');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -219,21 +218,7 @@ function deletePlant(request, response)
 function renderDetails(request, response)
 {
   let id = request.params.id;
-  let sql = 'SELECT * FROM greenhouse WHERE id=$1;';
-  let safeValue = [id];
-  let sql2 = 'SELECT * FROM notes WHERE plant_key=$1;';
-
-  client.query(sql, safeValue)
-    .then(plant => {
-      client.query(sql2, safeValue)
-        .then(ourNotes =>
-        {
-          response.status(200).render('pages/details',{detailsTarget: plant.rows[0], notesArray: ourNotes.rows, user: plant.rows[0].user_key});
-        })
-    }).catch((error) => {
-      console.log('ERROR', error);
-      response.redirect(`pages/error/${id}`);
-    })
+  doubleQuery(id, response);
 }
 
 //-------------------------------------
@@ -319,11 +304,11 @@ function createPlant(request, response)
   response.render('pages/createplant', { user: request.params.id, new_plant: request.body.new_plant});
 }
 
-//--------------------
+//--------------------------------
 function newPlant(request, response)
 {
   let {name, description, image_url, optimal_sun, optimal_soil, planting_considerations, when_to_plant, growing_from_seed, transplanting, spacing, watering, feeding, other_care, diseases, pests, harvesting, storage_use, user_key} = request.body;
-  // make function to put n/a in place of empty strings ??
+
   image_url === '' ? image_url = '/img/veggies.jpg' : '';
   description === '' ? description = 'n/a' : '';
   optimal_sun === '' ? optimal_sun = 'n/a' : '';
@@ -349,20 +334,7 @@ function newPlant(request, response)
   client.query(sql, safeValues).then(newId =>
   {
     let id = newId.rows[0].id;
-    let sql = 'SELECT * FROM greenhouse WHERE id=$1;';
-    let safeValue = [id];
-    let sql2 = 'SELECT * FROM notes WHERE plant_key=$1;';
-
-    client.query(sql, safeValue).then(plant =>
-    {
-      client.query(sql2, safeValue).then(ourNotes =>
-      {
-        response.status(200).render('pages/details',{detailsTarget: plant.rows[0], notesArray: ourNotes.rows, user: plant.rows[0].user_key});
-      })
-    }).catch((error) => {
-      console.log('ERROR', error);
-      response.redirect(`pages/error/${id}`);
-    })
+    doubleQuery(id, response);
   })
 }
 
@@ -376,6 +348,25 @@ function renderAboutUs(request, response)
 function renderError(request, response)
 {
   response.render('pages/error', {user : request.params.id})
+}
+
+//-------------------------------
+function doubleQuery(id, response)
+{
+  let sql = 'SELECT * FROM greenhouse WHERE id=$1;';
+  let safeValue = [id];
+  let sql2 = 'SELECT * FROM notes WHERE plant_key=$1;';
+
+  client.query(sql, safeValue).then(plant => 
+  {
+    client.query(sql2, safeValue).then(ourNotes =>
+    {
+      response.status(200).render('pages/details',{detailsTarget: plant.rows[0], notesArray: ourNotes.rows, user: plant.rows[0].user_key});
+    })
+  }).catch((error) => {
+    console.log('ERROR', error);
+    response.redirect(`pages/error/${id}`);
+  })
 }
 
 //--------------------------------
